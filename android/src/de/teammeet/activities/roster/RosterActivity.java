@@ -15,17 +15,14 @@ import android.preference.PreferenceManager;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.view.ViewPager;
 import android.util.Log;
-import android.view.View;
-import android.widget.TabHost;
-import android.widget.TabHost.TabContentFactory;
 import android.widget.Toast;
 
 import com.actionbarsherlock.app.ActionBar;
-import com.actionbarsherlock.app.ActionBar.Tab;
 import com.actionbarsherlock.app.SherlockFragmentActivity;
 import com.actionbarsherlock.view.Menu;
 import com.actionbarsherlock.view.MenuInflater;
 import com.actionbarsherlock.view.MenuItem;
+import com.viewpagerindicator.TabPageIndicator;
 
 import de.teammeet.R;
 import de.teammeet.activities.preferences.SettingsActivity;
@@ -38,17 +35,13 @@ import de.teammeet.tasks.CreateGroupTask;
 import de.teammeet.tasks.DisconnectTask;
 import de.teammeet.tasks.FetchRosterTask;
 
-public class RosterActivity extends SherlockFragmentActivity implements TabHost.OnTabChangeListener, ViewPager.OnPageChangeListener {
+public class RosterActivity extends SherlockFragmentActivity {
 	private static String CLASS = RosterActivity.class.getSimpleName();
-	private static String CONTACTS_TAB_ID = "contacts_tab";
-	private static String TEAMS_TAB_ID = "teams_tab";
-	private static String SAVED_TAB_KEY = "last_tab";
 
 	private IXMPPService mXMPPService = null;
 	private XMPPServiceConnection mXMPPServiceConnection = new XMPPServiceConnection();
 	private Intent mCurrentIntent = null;
 	
-	private TabHost mTabHost;
 	private ViewPager mViewPager;
 	private RosterAdapter mPagerAdapter;
 	
@@ -62,7 +55,7 @@ public class RosterActivity extends SherlockFragmentActivity implements TabHost.
 
 			if (mXMPPService.isAuthenticated()) {
 				// spawn `FetchRosterTask` but have it handled in the `ContactsFragment`
-				ContactsFragment contacts = (ContactsFragment) getSupportFragmentManager().findFragmentByTag(CONTACTS_TAB_ID);
+				ContactsFragment contacts = (ContactsFragment) mPagerAdapter.getFragment(RosterAdapter.CONTACTS_FRAGMENT_POS);
 				new FetchRosterTask(mXMPPService, contacts.new FetchRosterHandler()).execute();
 			}
 			if (mCurrentIntent != null) {
@@ -85,7 +78,7 @@ public class RosterActivity extends SherlockFragmentActivity implements TabHost.
 			Log.d(CLASS, "Connect task completed!!");
 			invalidateOptionsMenu();
 			// spawn `FetchRosterTask` but have it handled in the `ContactsFragment`
-			ContactsFragment contacts = (ContactsFragment) getSupportFragmentManager().findFragmentByTag(CONTACTS_TAB_ID);
+			ContactsFragment contacts = (ContactsFragment) mPagerAdapter.getFragment(RosterAdapter.CONTACTS_FRAGMENT_POS);
 			new FetchRosterTask(mXMPPService, contacts.new FetchRosterHandler()).execute();
 		}
 		
@@ -101,7 +94,7 @@ public class RosterActivity extends SherlockFragmentActivity implements TabHost.
 		public void onTaskCompleted(Void result) {
 			Log.d(CLASS, "you're now disconnected");
 			invalidateOptionsMenu();
-			ContactsFragment contacts = (ContactsFragment) getSupportFragmentManager().findFragmentByTag(CONTACTS_TAB_ID);
+			ContactsFragment contacts = (ContactsFragment) mPagerAdapter.getFragment(RosterAdapter.CONTACTS_FRAGMENT_POS);
 			contacts.handleDisconnect();
 		}
 	}
@@ -119,61 +112,23 @@ public class RosterActivity extends SherlockFragmentActivity implements TabHost.
 			Toast.makeText(RosterActivity.this, problem, Toast.LENGTH_LONG).show();
 		}
 	}
-	
 
-	/**
-	 * A simple factory that returns dummy views to the Tabhost
-	 */
-	private class DummyFactory implements TabContentFactory {
-		public View createTabContent(String tag) {
-			View dummy = new View(RosterActivity.this);
-			dummy.setMinimumWidth(0);
-			dummy.setMinimumHeight(0);
-			return dummy;
-		}
-
-	}
-	
 	/** (non-Javadoc)
 	 * @see android.support.v4.app.FragmentActivity#onCreate(android.os.Bundle)
 	 */
-	
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-		
+
 		Log.d(CLASS, "Creating tabbed roster activity");
-		
+
 		// Inflate the layout
 		setContentView(R.layout.tabbed_roster);
-		
-		ActionBar actionBar = getSupportActionBar();
-		actionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_TABS);
-		actionBar.setDisplayShowTitleEnabled(false);
-		
-		Tab tab = actionBar.newTab();
-		tab.setText(R.string.tab_contacts);
-		tab.setTabListener(new TabListener<ContactsFragment>(
-						this, CONTACTS_TAB_ID, ContactsFragment.class));
-		actionBar.addTab(tab);
 
-		tab = actionBar.newTab();
-		tab.setText(R.string.tab_teams);
-		tab.setTabListener(new TabListener<Teams>(
-					this, TEAMS_TAB_ID, Teams.class));
-		actionBar.addTab(tab);
-		
-		if (savedInstanceState != null) {
-			//set the tab as per the saved state
-			actionBar.setSelectedNavigationItem(savedInstanceState.getInt(SAVED_TAB_KEY));
-		}
-		
-		// Initialise the TabHost
-		/*initialiseTabHost(savedInstanceState);
-		
+		ActionBar actionBar = getSupportActionBar();
+		actionBar.setDisplayShowTitleEnabled(false);
 		
 		// Intialise ViewPager
 		intialiseViewPager();
-		*/
 
 		mCurrentIntent = getIntent();
 	}
@@ -216,75 +171,26 @@ public class RosterActivity extends SherlockFragmentActivity implements TabHost.
 		mCurrentIntent = intent;
 	}
 
-	/** (non-Javadoc)
-	 * @see android.support.v4.app.FragmentActivity#onSaveInstanceState(android.os.Bundle)
-	 */
-	protected void onSaveInstanceState(Bundle outState) {
-		ActionBar bar = getSupportActionBar();
-		outState.putInt(SAVED_TAB_KEY, bar.getSelectedNavigationIndex()); //save the tab selected
-		super.onSaveInstanceState(outState);
-	}
-
 	/*
 	 * Quick fix to make XMPP Service available to fragments.
 	 */
 	public IXMPPService getXMPPService() {
 		return mXMPPService;
 	}
-	
 
-	/**
-	 * Initialise the Tab Host
-	 */
-	private void initialiseTabHost(Bundle args) {
-		mTabHost = (TabHost)findViewById(android.R.id.tabhost);
-		mTabHost.setup();
-		addTab(mTabHost.newTabSpec(CONTACTS_TAB_ID).setIndicator(getString(R.string.tab_contacts)));
-		addTab(mTabHost.newTabSpec(TEAMS_TAB_ID).setIndicator(getString(R.string.tab_teams)));
-		mTabHost.setOnTabChangedListener(this);
-	}
-
-	private void addTab(TabHost.TabSpec tabSpec) {
-		// Attach a Tab view factory to the spec
-		tabSpec.setContent(new DummyFactory());
-		mTabHost.addTab(tabSpec);
-	}
-
-	
 	/**
 	 * Initialise ViewPager
 	 */
 	private void intialiseViewPager() {
 
-		mPagerAdapter  = new RosterAdapter(getSupportFragmentManager());
-
 		mViewPager = (ViewPager) findViewById(R.id.viewpager);
+		mPagerAdapter = new RosterAdapter(getSupportFragmentManager(), mViewPager);
 		mViewPager.setAdapter(mPagerAdapter);
-		mViewPager.setOnPageChangeListener(this);
-
+		
+		TabPageIndicator tabIndicator = (TabPageIndicator) findViewById(R.id.indicator);
+		tabIndicator.setViewPager(mViewPager);
 	}
 
-	public void onTabChanged(String tag) {
-		int pos = mTabHost.getCurrentTab();
-		/* avoid race condition between changing tab and changing orientation
-		 * destroys the ViewPager.
-		 */
-		if (mViewPager != null) {
-			mViewPager.setCurrentItem(pos);
-		}
-	}
-
-	@Override
-	public void onPageSelected(int position) {
-		mTabHost.setCurrentTab(position);
-	}
-
-	@Override
-	public void onPageScrollStateChanged(int state) {}
-
-	@Override
-	public void onPageScrolled(int arg0, float arg1, int arg2) {}
-	
 	private void handleIntent(Intent intent) {
 		Log.d(CLASS, "handling intent");
 		Bundle extras = intent.getExtras();
@@ -458,7 +364,6 @@ public class RosterActivity extends SherlockFragmentActivity implements TabHost.
 		Log.d(CLASS, "Will display 'formTeamDialog' now");
 		FormTeamDialog dialog = new FormTeamDialog();
 		FragmentManager fm = getSupportFragmentManager();
-		//TODO check how to spawn dialog fragment from activity
 		dialog.show(fm, null);
 		
 	}

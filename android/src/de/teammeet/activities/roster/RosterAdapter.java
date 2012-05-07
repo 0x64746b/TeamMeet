@@ -1,11 +1,16 @@
 package de.teammeet.activities.roster;
 
+import android.content.Context;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentPagerAdapter;
 import android.view.ViewGroup;
 
-public class RosterAdapter extends FragmentPagerAdapter {
+import com.viewpagerindicator.TitleProvider;
+
+import de.teammeet.R;
+
+public class RosterAdapter extends FragmentPagerAdapter implements TitleProvider {
 
 	private static final String CLASS = RosterAdapter.class.getSimpleName();
 	private static final int NUM_FRAGMENTS = 2;
@@ -13,8 +18,12 @@ public class RosterAdapter extends FragmentPagerAdapter {
 	public static final int CONTACTS_FRAGMENT_POS = 0;
 	public static final int TEAMS_FRAGMENT_POS = 1;
 
-	public RosterAdapter(FragmentManager fm) {
+	private ViewGroup mViewPager;
+
+	
+	public RosterAdapter(FragmentManager fm, ViewGroup pager) {
 		super(fm);
+		mViewPager = pager;
 	}
 
 	@Override
@@ -38,7 +47,21 @@ public class RosterAdapter extends FragmentPagerAdapter {
 		return NUM_FRAGMENTS;
 	}
 
-	public Fragment getFragment(ViewGroup container, int position) {
-		return (Fragment) super.instantiateItem(container, position);
+	public Fragment getFragment(int position) {
+		return (Fragment) super.instantiateItem(mViewPager, position);
+	}
+	
+	public String getTitle(int position) {
+		Context context = mViewPager.getContext();
+		String title = "ENOTITLE";
+		switch (position) {
+			case CONTACTS_FRAGMENT_POS:
+				title = context.getString(R.string.tab_contacts);
+				break;
+			case TEAMS_FRAGMENT_POS:
+				title = context.getString(R.string.tab_teams);
+				break;
+		}
+		return title;
 	}
 }
